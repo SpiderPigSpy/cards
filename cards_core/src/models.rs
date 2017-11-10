@@ -19,13 +19,13 @@ pub struct Word {
 
 impl Word {
     pub fn new_translation(&self, translation_word: &Word) -> Vec<NewTranslation> {
-        let mut translations = Vec::<NewTranslation>::new();
-        translations.push(NewTranslation::new(self, &translation_word));
-        translations.push(NewTranslation::new(&translation_word, self));
-        return translations;
+        vec![
+            NewTranslation::new(self, &translation_word),
+            NewTranslation::new(&translation_word, self)
+        ]
     }
 
-    pub fn new_translations(&self, translation_words: &Vec<Word>) -> Vec<NewTranslation> {
+    pub fn new_translations(&self, translation_words: &[Word]) -> Vec<NewTranslation> {
         translation_words.into_iter().fold(Vec::new(), |mut translations, translation_word| {
             translations.extend(self.new_translation(translation_word));
             return translations;
@@ -52,8 +52,8 @@ pub struct TranslatedWord {
     pub text: String
 }
 
-impl Word {
-    pub fn from(translated_word: &TranslatedWord) -> Word {
+impl From<TranslatedWord> for Word {
+    fn from(translated_word: TranslatedWord) -> Self {
         Word {
             id: translated_word.id,
             language: translated_word.language.clone(),
@@ -63,22 +63,30 @@ impl Word {
     }
 }
 
+pub trait ToWordConvertible<T> {
+    fn to_word(self) -> T;
+}
+
 impl ToWordConvertible<Word> for TranslatedWord {
-    fn to_word(&self) -> Word {
+    fn to_word(self) -> Word {
         Word::from(self)
     }
 }
 
-pub trait ToWordConvertible<T> {
-    fn to_word(&self) -> T;
+impl<'r, T> ToWordConvertible<Vec<Word>> for &'r [T] where T: ToWordConvertible<Word> + Clone {
+    fn to_word(self) -> Vec<Word> {
+        self.into_iter()
+            .map(T::clone)
+            .map(T::to_word)
+            .collect()
+    }
 }
 
 impl<T> ToWordConvertible<Vec<Word>> for Vec<T> where T: ToWordConvertible<Word> {
-    fn to_word(&self) -> Vec<Word> {
-        let words: Vec<Word> = self.into_iter()
-            .map(|translated_word| translated_word.to_word())
-            .collect();
-        words
+    fn to_word(self) -> Vec<Word> {
+        self.into_iter()
+            .map(T::to_word)
+            .collect()
     }
 }
 
